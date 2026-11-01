@@ -8,10 +8,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# -----------------------------
-# STILE
-# -----------------------------
-
 st.markdown("""
 <style>
 .block-container {
@@ -28,11 +24,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("💰 Bloxstrike Profit Calculator")
-st.caption("Token, casse, commissioni e profitto netto.")
+st.caption("Calcolo costi token, casse, commissioni e profitti netti.")
 
-# -----------------------------
+
+# ==========================================
 # FUNZIONI
-# -----------------------------
+# ==========================================
 
 def money(value):
     return f"${value:,.4f}" if abs(value) < 1 else f"${value:,.2f}"
@@ -42,18 +39,14 @@ def calculate(cost, revenue, fee_pct):
     fee = revenue * fee_pct / 100
     net_revenue = revenue - fee
     profit = net_revenue - cost
-
-    margin = (
-        profit / cost * 100
-        if cost > 0 else 0
-    )
+    margin = profit / cost * 100 if cost > 0 else 0
 
     return fee, net_revenue, profit, margin
 
 
-# -----------------------------
-# SIDEBAR: PORTAFOGLIO
-# -----------------------------
+# ==========================================
+# SIDEBAR - PORTAFOGLIO
+# ==========================================
 
 with st.sidebar:
 
@@ -76,6 +69,8 @@ with st.sidebar:
 
     st.divider()
 
+    st.header("⚙️ Commissioni")
+
     fee_pct = st.number_input(
         "Commissione sulle vendite (%)",
         min_value=0.0,
@@ -85,77 +80,66 @@ with st.sidebar:
     )
 
 
-# -----------------------------
-# COSTO MEDIO TOKEN
-# -----------------------------
+# ==========================================
+# COSTO MEDIO PORTAFOGLIO
+# ==========================================
 
 average_token_cost = (
     total_spent / owned_tokens
     if owned_tokens > 0 else 0
 )
 
-cost_per_1000 = average_token_cost * 1000
-
 st.subheader("📊 Riepilogo portafoglio")
 
-col1, col2, col3 = st.columns(3)
+c1, c2, c3 = st.columns(3)
 
-col1.metric(
-    "Token disponibili",
-    f"{owned_tokens:,.0f}"
+c1.metric("Token posseduti", f"{owned_tokens:,.0f}")
+c2.metric("Spesa totale", money(total_spent))
+c3.metric(
+    "Costo medio per 1.000 token",
+    money(average_token_cost * 1000)
 )
 
-col2.metric(
-    "Spesa totale",
-    money(total_spent)
-)
 
-col3.metric(
-    "Costo per 1.000 token",
-    money(cost_per_1000)
-)
+# ==========================================
+# NAVIGAZIONE
+# ==========================================
 
-if owned_tokens == 0:
-    st.warning(
-        "Inserisci il numero di token posseduti "
-        "nella barra laterale."
-    )
-
-# -----------------------------
-# TABS
-# -----------------------------
-
-tab_tokens, tab_cases, tab_guide = st.tabs([
-    "🪙 Token",
+tab1, tab2, tab3 = st.tabs([
+    "🪙 Acquisto e vendita token",
     "📦 Casse Bloxstrike",
     "💡 Guida"
 ])
 
 
-# =================================================
-# TAB 1: TOKEN
-# =================================================
+# ==========================================
+# TAB 1 - TOKEN
+# ==========================================
 
-with tab_tokens:
+with tab1:
 
-    st.subheader("🪙 Calcolatore token")
+    st.header("🪙 Calcolatore token")
 
     st.write(
-        "Calcola il profitto dalla vendita dei tuoi token."
+        "Inserisci quanto paghi per acquistare i token "
+        "e calcola il profitto ottenuto dalla rivendita."
     )
 
     col1, col2 = st.columns(2)
 
     with col1:
 
-        token_quantity = st.selectbox(
-            "Quantità token",
-            [500, 1000, 5000, 10000]
+        buy_1000 = st.number_input(
+            "Costo di acquisto per 1.000 token ($)",
+            min_value=0.0,
+            value=1.00,
+            step=0.05,
+            format="%.4f"
         )
 
     with col2:
 
-        token_sell_price = st.number_input(
+        sell_price = st.number_input(
             "Prezzo di vendita per token ($)",
             min_value=0.0,
             value=0.0045,
@@ -163,34 +147,80 @@ with tab_tokens:
             format="%.4f"
         )
 
-    token_cost = average_token_cost * token_quantity
+    quantity = st.selectbox(
+        "Quantità token da calcolare",
+        [500, 1000, 5000, 10000]
+    )
 
-    token_revenue = token_sell_price * token_quantity
+    # COSTI E RICAVI
+
+    token_cost = buy_1000 * quantity / 1000
+
+    revenue = sell_price * quantity
 
     fee, net_revenue, profit, margin = calculate(
         token_cost,
-        token_revenue,
+        revenue,
         fee_pct
     )
 
-    st.markdown("### Risultati")
+    st.markdown("### Risultato")
 
-    c1, c2, c3, c4 = st.columns(4)
+    a, b, c, d = st.columns(4)
 
-    c1.metric("Costo token", money(token_cost))
-    c2.metric("Ricavo lordo", money(token_revenue))
-    c3.metric("Commissione", money(fee))
-    c4.metric(
+    a.metric("Costo acquisto", money(token_cost))
+    b.metric("Ricavo lordo", money(revenue))
+    c.metric("Commissione", money(fee))
+    d.metric(
         "Profitto netto",
         money(profit),
         delta=f"{margin:.2f}% sul costo"
     )
 
     st.info(
-        f"Ricavo dopo commissione: **{money(net_revenue)}**"
+        f"Dopo la commissione ricevi {money(net_revenue)}. "
+        f"Il profitto effettivo è {money(profit)}."
     )
 
-    st.markdown("### Confronto prezzi di vendita")
+    # CONFRONTO 500 E 1000
+
+    st.markdown("### Confronto quantità")
+
+    rows = []
+
+    for q in [500, 1000, 5000, 10000]:
+
+        cost = buy_1000 * q / 1000
+        rev = sell_price * q
+
+        f, net, p, m = calculate(cost, rev, fee_pct)
+
+        rows.append({
+            "Token": q,
+            "Costo acquisto": cost,
+            "Ricavo lordo": rev,
+            "Commissione": f,
+            "Ricavo dopo fee": net,
+            "Profitto netto": p,
+            "Margine": m
+        })
+
+    st.dataframe(
+        pd.DataFrame(rows).style.format({
+            "Costo acquisto": "${:.4f}",
+            "Ricavo lordo": "${:.4f}",
+            "Commissione": "${:.4f}",
+            "Ricavo dopo fee": "${:.4f}",
+            "Profitto netto": "${:.4f}",
+            "Margine": "{:.2f}%"
+        }),
+        use_container_width=True,
+        hide_index=True
+    )
+
+    # CONFRONTO PREZZI
+
+    st.markdown("### Quale prezzo di vendita conviene?")
 
     prices = [
         0.0035,
@@ -203,35 +233,31 @@ with tab_tokens:
         0.0080
     ]
 
-    rows = []
+    price_rows = []
 
     for price in prices:
 
-        revenue = price * token_quantity
+        rev = price * quantity
 
         f, net, p, m = calculate(
             token_cost,
-            revenue,
+            rev,
             fee_pct
         )
 
-        rows.append({
-            "Prezzo/token": price,
-            "Ricavo lordo": revenue,
+        price_rows.append({
+            "Prezzo per token": price,
+            "Ricavo lordo": rev,
             "Commissione": f,
-            "Ricavo dopo fee": net,
             "Profitto netto": p,
             "Margine": m
         })
 
-    df = pd.DataFrame(rows)
-
     st.dataframe(
-        df.style.format({
-            "Prezzo/token": "${:.4f}",
+        pd.DataFrame(price_rows).style.format({
+            "Prezzo per token": "${:.4f}",
             "Ricavo lordo": "${:.4f}",
             "Commissione": "${:.4f}",
-            "Ricavo dopo fee": "${:.4f}",
             "Profitto netto": "${:.4f}",
             "Margine": "{:.2f}%"
         }),
@@ -239,39 +265,41 @@ with tab_tokens:
         hide_index=True
     )
 
-    if owned_tokens > 0 and fee_pct < 100:
+    # PAREGGIO
+
+    if fee_pct < 100:
 
         break_even = (
-            average_token_cost /
+            (buy_1000 / 1000) /
             (1 - fee_pct / 100)
         )
 
         st.success(
-            f"Prezzo minimo di pareggio: "
-            f"**${break_even:.6f} per token**"
+            f"Prezzo minimo per non andare in perdita: "
+            f"**${break_even:.6f} per token**."
         )
 
 
-# =================================================
-# TAB 2: CASSE
-# =================================================
+# ==========================================
+# TAB 2 - CASSE BLOXSTRIKE
+# ==========================================
 
-with tab_cases:
+with tab2:
 
-    st.subheader("📦 Calcolatore casse Bloxstrike")
+    st.header("📦 Calcolatore casse Bloxstrike")
 
     st.write(
-        "Il costo di acquisto delle casse è espresso "
-        "in TOKEN. Il sistema converte automaticamente "
-        "il costo in dollari usando il tuo portafoglio."
+        "Il prezzo di acquisto delle casse è espresso in token. "
+        "Il sistema converte automaticamente il costo in dollari "
+        "utilizzando il costo medio del tuo portafoglio."
     )
 
     col1, col2, col3 = st.columns(3)
 
     with col1:
 
-        case_token_price = st.number_input(
-            "Costo acquisto di 1 cassa (token)",
+        case_token_cost = st.number_input(
+            "Costo di acquisto di 1 cassa (token)",
             min_value=0.0,
             value=100.0,
             step=10.0
@@ -280,7 +308,7 @@ with tab_cases:
     with col2:
 
         case_sell_price = st.number_input(
-            "Prezzo vendita di 1 cassa ($)",
+            "Prezzo di vendita di 1 cassa ($)",
             min_value=0.0,
             value=0.75,
             step=0.05,
@@ -294,19 +322,13 @@ with tab_cases:
             [1, 10, 50, 100]
         )
 
-    # CALCOLO COSTI
+    # CONVERSIONE TOKEN -> USD
 
-    tokens_required = (
-        case_token_price * case_quantity
-    )
+    tokens_used = case_token_cost * case_quantity
 
-    case_cost_usd = (
-        tokens_required * average_token_cost
-    )
+    case_cost_usd = tokens_used * average_token_cost
 
-    case_revenue = (
-        case_sell_price * case_quantity
-    )
+    case_revenue = case_sell_price * case_quantity
 
     fee, net_revenue, profit, margin = calculate(
         case_cost_usd,
@@ -314,75 +336,77 @@ with tab_cases:
         fee_pct
     )
 
-    # RISULTATI
+    st.markdown("### Risultato")
 
-    st.markdown("### Risultati")
+    a, b, c, d = st.columns(4)
 
-    c1, c2, c3, c4 = st.columns(4)
-
-    c1.metric(
-        "Costo totale in token",
-        f"{tokens_required:,.2f}"
+    a.metric(
+        "Token utilizzati",
+        f"{tokens_used:,.2f}"
     )
 
-    c2.metric(
+    b.metric(
         "Costo reale in $",
         money(case_cost_usd)
     )
 
-    c3.metric(
+    c.metric(
         "Ricavo dopo commissione",
         money(net_revenue),
         delta=f"Fee: {money(fee)}"
     )
 
-    c4.metric(
+    d.metric(
         "Profitto netto",
         money(profit),
         delta=f"{margin:.2f}% sul costo"
     )
 
     st.info(
-        f"Stai utilizzando **{tokens_required:,.2f} token**, "
-        f"che al tuo costo medio equivalgono a "
-        f"**{money(case_cost_usd)}**."
+        f"{tokens_used:,.2f} token corrispondono a "
+        f"{money(case_cost_usd)} di costo effettivo."
     )
 
-    # CONFRONTO QUANTITA
+    if owned_tokens > 0 and tokens_used > owned_tokens:
 
-    st.markdown("### Confronto x1 / x10 / x50 / x100")
+        st.warning(
+            "Attenzione: i token necessari per questo acquisto "
+            "superano il saldo indicato nel portafoglio."
+        )
 
-    rows = []
+    # TABELLA QUANTITA
 
-    for quantity in [1, 10, 50, 100]:
+    st.markdown("### Confronto casse x1 / x10 / x50 / x100")
 
-        tokens = case_token_price * quantity
+    case_rows = []
 
-        cost_usd = tokens * average_token_cost
+    for q in [1, 10, 50, 100]:
 
-        revenue = case_sell_price * quantity
+        tokens = case_token_cost * q
+
+        cost = tokens * average_token_cost
+
+        rev = case_sell_price * q
 
         f, net, p, m = calculate(
-            cost_usd,
-            revenue,
+            cost,
+            rev,
             fee_pct
         )
 
-        rows.append({
-            "Quantità": f"x{quantity}",
+        case_rows.append({
+            "Quantità": f"x{q}",
             "Token necessari": tokens,
-            "Costo in $": cost_usd,
-            "Ricavo lordo": revenue,
+            "Costo in $": cost,
+            "Ricavo lordo": rev,
             "Commissione": f,
             "Ricavo dopo fee": net,
             "Profitto netto": p,
             "Margine": m
         })
 
-    df = pd.DataFrame(rows)
-
     st.dataframe(
-        df.style.format({
+        pd.DataFrame(case_rows).style.format({
             "Token necessari": "{:,.2f}",
             "Costo in $": "${:.4f}",
             "Ricavo lordo": "${:.4f}",
@@ -395,70 +419,65 @@ with tab_cases:
         hide_index=True
     )
 
-    # PAREGGIO
+    # PAREGGIO CASSE
 
     if average_token_cost > 0 and fee_pct < 100:
 
         break_even_case = (
-            case_token_price *
+            case_token_cost *
             average_token_cost /
             (1 - fee_pct / 100)
         )
 
         st.success(
             f"Prezzo minimo di vendita per cassa "
-            f"per andare in pari: "
-            f"**{money(break_even_case)}**"
+            f"per andare in pari: {money(break_even_case)}."
         )
 
 
-# =================================================
-# TAB 3: GUIDA
-# =================================================
+# ==========================================
+# TAB 3 - GUIDA
+# ==========================================
 
-with tab_guide:
+with tab3:
 
-    st.subheader("💡 Come funziona il calcolatore")
+    st.header("💡 Come funziona")
 
     st.markdown("""
-    **1. Portafoglio token**
+    ### Acquisto token
+
+    Inserisci quanto paghi per 1.000 token.
+    Questo valore determina il costo dei token che rivendi.
+
+    ### Portafoglio
 
     Inserisci quanti token possiedi e quanto hai speso
     complessivamente per acquistarli.
 
-    **2. Costo medio**
-
-    Il sistema calcola automaticamente:
+    Il costo medio del portafoglio viene calcolato così:
 
     `Spesa totale / Token posseduti`
 
-    **3. Acquisto casse**
+    ### Casse
 
-    Inserisci quanti token costa una singola cassa.
+    Inserisci il costo della cassa in token e il prezzo
+    di vendita in dollari.
 
-    **4. Conversione in dollari**
+    Il sistema converte automaticamente i token in dollari
+    utilizzando il costo medio del portafoglio.
 
-    Il costo della cassa viene convertito utilizzando
-    il costo medio effettivo dei tuoi token.
+    ### Formula profitto netto
 
-    **5. Vendita e profitto**
+    `Ricavo vendita - Commissione - Costo token`
 
-    Il profitto viene calcolato sottraendo:
-    - Il costo reale dei token utilizzati.
-    - La commissione sulla vendita.
-    - Dal ricavo lordo della vendita.
-
-    **Formula:**
-
-    `Profitto = Ricavo vendita - Fee - Costo token`
-
-    Nota: viene utilizzato il costo medio complessivo
-    dei token, anche se acquistati in momenti diversi.
+    **Nota:** il calcolo delle casse usa il costo medio
+    dei token posseduti. Non viene scalato automaticamente
+    il saldo dopo un acquisto.
     """)
 
 st.divider()
 
 st.caption(
     "Bloxstrike Profit Calculator · USD ($) · "
-    "Commissioni configurabili"
+    "Commissione modificabile"
 )
