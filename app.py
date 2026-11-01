@@ -295,7 +295,7 @@ with tab2:
     with col3:
         case_quantity = st.selectbox(
             "Quantità casse",
-            [1, 10, 50, 100],
+            [1, 10, 20, 50, 100],
             key="case_quantity"
         )
 
@@ -354,7 +354,7 @@ with tab2:
 
     case_rows = []
 
-    for q in [1, 10, 50, 100]:
+    for q in [1, 10, 20, 50, 100]:
 
         tokens = case_token_cost * q
 
